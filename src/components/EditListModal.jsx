@@ -1,18 +1,20 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useId, useState } from "react"
+import Modal from "react-modal"
 import { useDispatch, useSelector } from "react-redux"
-import { Link, useNavigate, useParams } from "react-router-dom"
-import { BackButton } from "~/components/BackButton"
-import "./index.css"
-import { Button } from "~/components/Button"
-import { Input } from "~/components/Input"
-import { useId } from "~/hooks/useId"
-import { deleteList, fetchLists, updateList } from "~/store/list"
+import { Button } from "./Button"
+import { Input } from "./Input"
+import "./EditListModal.css"
+import { deleteList, updateList } from "~/store/list/index"
 
-const EditList = () => {
+if (typeof document !== "undefined") {
+  try {
+    Modal.setAppElement("#root")
+  } catch {}
+}
+
+export const EditListModal = ({ isOpen, onRequestClose, listId }) => {
   const id = useId()
 
-  const { listId } = useParams()
-  const navigate = useNavigate()
   const dispatch = useDispatch()
 
   const [title, setTitle] = useState("")
@@ -25,14 +27,12 @@ const EditList = () => {
   )
 
   useEffect(() => {
+    if (!isOpen) return
+    setErrorMessage("")
     if (list) {
       setTitle(list.title)
     }
-  }, [list])
-
-  useEffect(() => {
-    void dispatch(fetchLists())
-  }, [dispatch])
+  }, [isOpen, list])
 
   const onSubmit = useCallback(
     (event) => {
@@ -43,7 +43,7 @@ const EditList = () => {
       void dispatch(updateList({ id: listId, title }))
         .unwrap()
         .then(() => {
-          navigate(`/lists/${listId}`)
+          onRequestClose?.()
         })
         .catch((err) => {
           setErrorMessage(err.message)
@@ -52,7 +52,7 @@ const EditList = () => {
           setIsSubmitting(false)
         })
     },
-    [title, listId, dispatch, navigate],
+    [title, listId, dispatch, onRequestClose],
   )
 
   const handleDelete = useCallback(() => {
@@ -65,7 +65,7 @@ const EditList = () => {
     void dispatch(deleteList({ id: listId }))
       .unwrap()
       .then(() => {
-        navigate(`/`)
+        onRequestClose?.()
       })
       .catch((err) => {
         setErrorMessage(err.message)
@@ -73,16 +73,25 @@ const EditList = () => {
       .finally(() => {
         setIsSubmitting(false)
       })
-  }, [dispatch, navigate, listId])
+  }, [listId, dispatch, onRequestClose])
 
   return (
-    <main className="edit_list">
-      <BackButton />
-      <h2 className="edit_list__title">Edit List</h2>
-      <p className="edit_list__error">{errorMessage}</p>
-      <form className="edit_list__form" onSubmit={onSubmit}>
-        <fieldset className="edit_list__form_field">
-          <label htmlFor={`${id}-title`} className="edit_list__form_label">
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={onRequestClose}
+      overlayClassName="edit_list_modal__overlay"
+      className="edit_list_modal"
+      shouldCloseOnOverlayClick
+      contentLabel="Edit List"
+    >
+      <h2 className="edit_list_modal__title">Edit List</h2>
+      <p className="edit_list_modal__error">{errorMessage}</p>
+      <form className="edit_list_modal__form" onSubmit={onSubmit}>
+        <fieldset className="edit_list_modal__form_field">
+          <label
+            htmlFor={`${id}-title`}
+            className="edit_list_modal__form_label"
+          >
             Name
           </label>
           <Input
@@ -92,14 +101,19 @@ const EditList = () => {
             onChange={(event) => setTitle(event.target.value)}
           />
         </fieldset>
-        <div className="edit_list__form_actions">
-          <Link to="/" data-variant="secondary" className="app_button">
-            Cancel
-          </Link>
-          <div className="edit_list__form_actions_spacer"></div>
+        <div className="edit_list_modal__form_actions">
           <Button
             type="button"
-            className="app_button edit_list__form_actions_delete"
+            variant="secondary"
+            className="app_button"
+            onClick={onRequestClose}
+          >
+            Cancel
+          </Button>
+          <div className="edit_list_modal__form_actions_spacer"></div>
+          <Button
+            type="button"
+            className="app_button edit_list_modal__form_actions_delete"
             disabled={isSubmitting}
             onClick={handleDelete}
           >
@@ -108,8 +122,6 @@ const EditList = () => {
           <Button disabled={isSubmitting}>Update</Button>
         </div>
       </form>
-    </main>
+    </Modal>
   )
 }
-
-export default EditList
